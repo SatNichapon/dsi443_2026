@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 YOUTUBE_DATA_API_KEY = os.getenv("YOUTUBE_DATA_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY_Sho2")
 
 if not YOUTUBE_DATA_API_KEY:
     print("WARNING: YOUTUBE_DATA_API_KEY is missing from .env")
@@ -127,7 +127,7 @@ MAX_WORKERS_ANALYSIS = 1
 DELAY_SECONDS = 50
 # -------------------------------------------------------------------------------------------------- sensitive config
 
-def load_prompt(prompt_name="charlie_v1"):
+def load_prompt(prompt_name="influencer_brand_v1"):
     try:
         with open(PROMPTS_FILE, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -136,4 +136,4 @@ def load_prompt(prompt_name="charlie_v1"):
         print("{PROMPTS_FILE}")
         return ""
 
-PROMPT_MESSAGE = load_prompt("charlie_v1")
+PROMPT_MESSAGE = load_prompt("influencer_brand_v1")
