@@ -4,95 +4,151 @@ import logging
 import concurrent.futures
 from google import genai
 from google.genai import types
-
-from . import config
+from config import YOUTUBE_DATA_API_KEY , GEMINI_API_KEY
+import config
+import os
 
 logger = logging.getLogger(__name__)
 
+class RateLimitError(Exception):
+    pass
+
 def analyze_single_video(video_data: dict) -> dict | None:
-    """
-    Sends a single video to the Gemini 2.5 Flash model for multimodal narrative analysis.
-
-    This function takes existing metadata (from the Collector), sends the video URL
-    to Gemini, and merges the AI's analysis (Topic, Conflict, etc.) back into
-    the original dictionary.
-
-    Args:
-        video_data (dict): A dictionary containing at least:
-            - 'url' (str): The YouTube video URL.
-            - 'title' (str): The video title (used in the prompt context).
-
-    Returns:
-        dict | None: A unified dictionary containing both the original metadata
-                     and the AI-generated analysis keys. Returns None if the API call fails.
-    """
     client = genai.Client(api_key=config.GEMINI_API_KEY)
     url = video_data['url']
 
-    max_retries = 3
-    base_wait_time = 30 # Seconds to wait if we hit a limit
+    try:
+        logger.info(f"Checking: {url}")
 
-    for attempt in range(max_retries):
+        response = client.models.generate_content(
+            model=config.MODEL_NAME,
+            config=types.GenerateContentConfig(
+                system_instruction=config.PROMPT_MESSAGE,
+                response_mime_type="application/json"
+            ),
+            contents=[
+                types.Part.from_uri(file_uri=url, mime_type="video/mp4"),
+                f"Analyze : '{video_data['title']}'"
+            ]
+        )
+        ai_result = json.loads(response.text)
+
+        final_record = {
+            **video_data,
+            **ai_result
+        }
+
+        logger.info(f"Success for video_id={video_data.get('video_id')}")
+        return final_record
+
+    except Exception as e:
+        error_msg = str(e)
+
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            logger.error(f"Rate limit hit on {url}: {e}")
+            raise RateLimitError(error_msg)
+
+        logger.error(f"Fatal Error on {url}: {e}")
+        return None
+
+def run_analysis_to_individual_files(
+    video_list: list[dict],
+    out_dir: str = r"D:\TU\4_y\DSI443\dsi443_2025\output\analysis_results"
+) -> None:
+  
+    os.makedirs(out_dir, exist_ok=True)
+
+    existing_files = set(os.listdir(out_dir))
+
+    for idx, video in enumerate(video_list, start=1):
+        vid = video.get("video_id")
+        if not vid:
+            logger.warning(f"Skip video with no video_id: {video}")
+            continue
+
+        index_in_query = video.get("index_in_query", "NA")
+        query = video.get("query", "NA").replace(" ", "_")
+        filename2 = f"{query}_{index_in_query}.json"
+
+        # filename = f"{vid}.json"
+
+        # out_path = os.path.join(out_dir, filename)
+
+        if filename2 in existing_files:
+            logger.info(f"[{idx}/{len(video_list)}] Skip already-processed video_id={filename2}")
+            continue
+
+        logger.info(f"[{idx}/{len(video_list)}] Analyzing video_id={filename2}")
+
         try:
-            logger.info(f"Checking: {url} (Attempt {attempt + 1})")
-
-            response = client.models.generate_content(
-                model=config.MODEL_NAME,
-                config=types.GenerateContentConfig(
-                    system_instruction=config.PROMPT_MESSAGE,
-                    response_mime_type="application/json"
-                ),
-                contents=[
-                    types.Part.from_uri(file_uri=url, mime_type="video/mp4"),
-                    f"Analyze this video titled: '{video_data['title']}'"
-                ]
+            result = analyze_single_video(video)
+        except RateLimitError:
+            logger.warning(
+                "Rate limit encountered. Stopping analysis. "
             )
-            # Merge AI analysis with the metadata we already have
-            ai_result = json.loads(response.text)
-            
-            final_record = {
-                **video_data,   # Keeps url, title, publish_date
-                **ai_result     # Adds topic, conflict, etc.
-            }
+            break  
+        
+        out_path2 = os.path.join(out_dir, filename2)
+        if result:
+            with open(out_path2, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+            logger.info(f"Saved result -> {out_path2}")
+        else:
+            logger.info(f"No result for video_id={vid} (skipped)")
 
-            logger.info(f"Success: {final_record.get('topic', 'Unknown Topic')}")
-            return final_record
+def load_all_analysis_results(out_dir: str = r"D:\TU\4_y\DSI443\dsi443_2025\output\analysis_results") -> list[dict]:
 
+    if not os.path.exists(out_dir):
+        return []
+
+    records: list[dict] = []
+    for fname in os.listdir(out_dir):
+        if not fname.endswith(".json"):
+            continue
+        fpath = os.path.join(out_dir, fname)
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                rec = json.load(f)
+                records.append(rec)
         except Exception as e:
-            error_msg = str(e)
-            # Check if the error is a Rate Limit (429)
-            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                wait_time = base_wait_time * (attempt + 1) # Wait 30s, then 60s, then 90s
-                logger.warning(f"Rate Limit hit on {url}. Sleeping for {wait_time}s...")
-                time.sleep(wait_time)
-            else:
-                # If it's a real error (like 404 Not Found), fail immediately
-                logger.error(f"Fatal Error on {url}: {e}")
-                return None 
+            logger.error(f"Error reading {fpath}: {e}")
+            continue
+
+    return records
+
 
 def run_analysis_pipeline(video_list: list[dict]) -> list[dict]:
-    """
-    Orchestrates the parallel analysis of a list of video objects.
+    results: list[dict] = []
 
-    Uses a ThreadPoolExecutor to process multiple videos simultaneously while
-    enforcing a rate-limit delay to adhere to API quotas.
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=config.MAX_WORKERS_ANALYSIS
+    ) as executor:
+        future_to_video = {
+            executor.submit(analyze_single_video, video): video
+            for video in video_list
+        }
 
-    Args:
-        video_list (list[dict]): A list of video metadata dictionaries to analyze.
+        try:
+            for future in concurrent.futures.as_completed(future_to_video):
+                try:
+                    data = future.result()
+                except RateLimitError:
+                    logger.warning(
+                        "Rate limit"
+                    )
+                    for f in future_to_video:
+                        if not f.done():
+                            f.cancel()
+                    break 
 
-    Returns:
-        list[dict]: A list of fully analyzed video records. Failed items are excluded.
-    """
-    results = []
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=config.MAX_WORKERS_ANALYSIS) as executor:
-        future_to_video = {executor.submit(analyze_single_video, video): video for video in video_list}
-        
-        for future in concurrent.futures.as_completed(future_to_video):
-            data = future.result()
-            if data:
-                results.append(data)
-            # Rate limit buffer
-            time.sleep(config.DELAY_SECONDS)
-            
-    return results
+                except Exception as e:
+                    logger.error(f"Unexpected error in analysis: {e}")
+                    continue
+
+                if data:
+                    results.append(data)
+
+                time.sleep(config.DELAY_SECONDS)
+
+        finally:
+            return results
