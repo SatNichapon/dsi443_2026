@@ -4,7 +4,7 @@ import logging
 
 from src import config
 from src.collector import run_collection_pipeline
-from src.analyzer import run_analysis_pipeline
+from src.analyzer import run_analysis_to_individual_files, load_all_analysis_results
 
 # --- LOGGING SETUP ---
 # Create a custom logger that saves to both File and Console
@@ -89,11 +89,17 @@ def main():
 
     # --- PHASE 2: ANALYSIS ---
     logger.info(f"Starting analysis on {len(video_data)} videos...")
-    analysis_results = run_analysis_pipeline(video_data) # run analysis
+
+    run_analysis_to_individual_files(
+        video_list=video_data,
+        out_dir=config.FINAL_OUTPUT_DIR
+    )
 
     # --- PHASE 3: FINALIZE ---
-    save_json(analysis_results, config.FINAL_OUTPUT_FILE)
-    logger.info(f"PROJECT COMPLETE. Analyzed {len(analysis_results)} videos.")
+    records = load_all_analysis_results(config.FINAL_OUTPUT_DIR)
+    save_json(records, config.FINAL_OUTPUT_FILE)
+
+    logger.info(f"Loaded {len(records)} JSON records.")
 
 if __name__ == "__main__":
     main()

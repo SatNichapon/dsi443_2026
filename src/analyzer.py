@@ -1,11 +1,8 @@
-import time
 import json
 import logging
-import concurrent.futures
 from google import genai
 from google.genai import types
-from config import YOUTUBE_DATA_API_KEY , GEMINI_API_KEY
-import config
+from src import config
 import os
 
 logger = logging.getLogger(__name__)
@@ -53,7 +50,7 @@ def analyze_single_video(video_data: dict) -> dict | None:
 
 def run_analysis_to_individual_files(
     video_list: list[dict],
-    out_dir: str = r"D:\TU\4_y\DSI443\dsi443_2025\output\analysis_results"
+    out_dir: str = config.FINAL_OUTPUT_DIR
 ) -> None:
   
     os.makedirs(out_dir, exist_ok=True)
@@ -70,10 +67,6 @@ def run_analysis_to_individual_files(
         query = video.get("query", "NA").replace(" ", "_")
         filename2 = f"{query}_{index_in_query}.json"
 
-        # filename = f"{vid}.json"
-
-        # out_path = os.path.join(out_dir, filename)
-
         if filename2 in existing_files:
             logger.info(f"[{idx}/{len(video_list)}] Skip already-processed video_id={filename2}")
             continue
@@ -84,7 +77,7 @@ def run_analysis_to_individual_files(
             result = analyze_single_video(video)
         except RateLimitError:
             logger.warning(
-                "Rate limit encountered. Stopping analysis. "
+                "Rate limit encountered. Stopping analysis."
             )
             break  
         
@@ -96,7 +89,7 @@ def run_analysis_to_individual_files(
         else:
             logger.info(f"No result for video_id={vid} (skipped)")
 
-def load_all_analysis_results(out_dir: str = r"D:\TU\4_y\DSI443\dsi443_2025\output\analysis_results") -> list[dict]:
+def load_all_analysis_results(out_dir: str = config.FINAL_OUTPUT_DIR) -> list[dict]:
 
     if not os.path.exists(out_dir):
         return []
@@ -115,40 +108,3 @@ def load_all_analysis_results(out_dir: str = r"D:\TU\4_y\DSI443\dsi443_2025\outp
             continue
 
     return records
-
-
-def run_analysis_pipeline(video_list: list[dict]) -> list[dict]:
-    results: list[dict] = []
-
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=config.MAX_WORKERS_ANALYSIS
-    ) as executor:
-        future_to_video = {
-            executor.submit(analyze_single_video, video): video
-            for video in video_list
-        }
-
-        try:
-            for future in concurrent.futures.as_completed(future_to_video):
-                try:
-                    data = future.result()
-                except RateLimitError:
-                    logger.warning(
-                        "Rate limit"
-                    )
-                    for f in future_to_video:
-                        if not f.done():
-                            f.cancel()
-                    break 
-
-                except Exception as e:
-                    logger.error(f"Unexpected error in analysis: {e}")
-                    continue
-
-                if data:
-                    results.append(data)
-
-                time.sleep(config.DELAY_SECONDS)
-
-        finally:
-            return results

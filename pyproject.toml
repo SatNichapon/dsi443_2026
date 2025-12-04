@@ -1,7 +1,7 @@
 [project]
-name = "my-world-eiei"
+name = "dsi443-project-pipeline"
 version = "0.1.0"
-description = "I-love-minor"
+description = "A data pipeline that collects YouTube video metadata and uses Google Gemini AI to extract narrative structures, sentiment, and conflict dynamics for political analysis."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

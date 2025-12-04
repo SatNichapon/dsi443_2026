@@ -271,6 +271,35 @@ wheels = [
 ]
 
 [[package]]
+name = "dsi443-project-pipeline"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "google-api-python-client" },
+    { name = "google-genai" },
+    { name = "ipykernel" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "kernel" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "google-api-python-client", specifier = ">=2.187.0" },
+    { name = "google-genai", specifier = ">=1.52.0" },
+    { name = "ipykernel", specifier = ">=7.1.0" },
+    { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "kernel", specifier = ">=0.20.0" }]
+
+[[package]]
 name = "executing"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -554,35 +583,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/c7/74/97e72a36efd4ae2bc
 wheels = [
     { url = "https://files.pythonhosted.org/packages/af/33/ee4519fa02ed11a94aef9559552f3b17bb863f2ecfe1a35dc7f548cde231/matplotlib_inline-0.2.1-py3-none-any.whl", hash = "sha256:d56ce5156ba6085e00a9d54fead6ed29a9c47e215cd1bba2e976ef39f5710a76", size = 9516, upload-time = "2025-10-23T09:00:20.675Z" },
 ]
-
-[[package]]
-name = "my-world-eiei"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "google-api-python-client" },
-    { name = "google-genai" },
-    { name = "ipykernel" },
-    { name = "python-dotenv" },
-    { name = "pyyaml" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "kernel" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "google-api-python-client", specifier = ">=2.187.0" },
-    { name = "google-genai", specifier = ">=1.52.0" },
-    { name = "ipykernel", specifier = ">=7.1.0" },
-    { name = "python-dotenv", specifier = ">=1.2.1" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "kernel", specifier = ">=0.20.0" }]
 
 [[package]]
 name = "nest-asyncio"

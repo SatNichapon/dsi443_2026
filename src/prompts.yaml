@@ -103,7 +103,7 @@ charlie_v2: |
   - If some fields cannot be reliably inferred, use an empty list [] or a neutral description like 'unclear' rather than guessing wildly.
   - All strings should be in clear, concise English.
 
-influencer_brand_v1: |
+charlie_v3: |
   ROLE:
   You are a senior digital media analyst working in a professional newsroom and brand strategy agency.
   Your expertise includes:
@@ -189,7 +189,7 @@ influencer_brand_v1: |
   - If something cannot be reliably inferred, return 'unclear' or an empty list.
   - Keep all text concise, clear, and actionable for professional newsroom + brand insights.
 
-final: |
+charlie_v4: |
   ROLE:
   You are a senior media impact analyst specializing in how video content shapes 
   public opinion, behavior, and political outcomes. You understand psychology, 

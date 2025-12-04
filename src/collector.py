@@ -1,8 +1,7 @@
 import logging
 import concurrent.futures
 from googleapiclient.discovery import build
-import config
-from config import YOUTUBE_DATA_API_KEY , GEMINI_API_KEY
+from src import config
 
 logger = logging.getLogger(__name__)
 
